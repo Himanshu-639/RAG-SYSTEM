@@ -1,13 +1,24 @@
+from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import os
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 import ollama
 from sklearn.metrics.pairwise import cosine_similarity
 import requests
 import json
 
 load_dotenv()
+
+app = FastAPI(title="RAG-SYSTEM")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (change this in production!)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 dataset = []
 
@@ -36,77 +47,48 @@ def retrieve(query, top_n=3):
     similarities.sort(key=lambda x:x[1], reverse=True)
     return similarities[:top_n]
 
-input_query = input("Ask me anything : ")
-retrieved_knowledge = retrieve(input_query)
+from pydantic import BaseModel
+from fastapi import Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import StreamingResponse
 
-print('Retrieved Knowledge : ')
-for chunk, similarity in retrieved_knowledge:
-    print(f" - (similarity : {similarity:.2f}) {chunk}")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-'''
+class QueryRequest(BaseModel):
+    query: str
 
-def generate():
-    client = genai.Client(
-        api_key=os.environ.get("GEMINI_API_KEY"),
-    )
+@app.get("/")
+async def get_home(request: Request):
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
 
-    model = "gemma-4-26b-a4b-it"
-    contents = [
-        types.Content(
-            role="user",
-            parts=[
-                types.Part.from_text(text=input_query),
-            ],
-        ),
-    ]
-    tools = [
-        types.Tool(googleSearch=types.GoogleSearch(
-        )),
-    ]
-    generate_content_config = types.GenerateContentConfig(
-        tools=tools,
-        system_instruction=[
-            types.Part.from_text(text=f"""You are a helpful chatbot.
-Use only the following pieces of context to answer the question. Don't make up any new information:
-{'\\n'.join([f' - {chunk}' for chunk, similarity in retrieved_knowledge])}"""),
-        ],
-    )
-
-    for chunk in client.models.generate_content_stream(
-        model=model,
-        contents=contents,
-        config=generate_content_config,
-    ):
-        if text := chunk.text:
-            print(text, end="")
-
-print("your Answer")
-
-'''
-
-def generate():
+@app.post("/chat")
+async def chat(request: QueryRequest):
+    retrieved_knowledge = retrieve(request.query)
+    
     url = "http://localhost:11434/api/generate"
+    
+    context_text = '\n'.join([f' - {chunk}' for chunk, similarity in retrieved_knowledge])
+    system_prompt = f"You are a helpful chatbot.\nUse only the following pieces of context to answer the question. Don't make up any new information:\n{context_text}"
 
     payload = {
         "model": "gemma4:e2b",
-        "prompt": input_query,
+        "prompt": request.query,
+        "system": system_prompt,
     }
 
-    try:
-        response = requests.post(url, json = payload, stream=True)
+    def stream_generator():
+        try:
+            response = requests.post(url, json=payload, stream=True)
+            if response.status_code == 200:
+                for line in response.iter_lines():
+                    if line:
+                        data = json.loads(line)
+                        yield data.get("response", "")
+            else:
+                yield f"Error: Status Code {response.status_code}"
+        except Exception as e:
+            yield f"Error: {e}"
 
-        if response.status_code == 200:
-            for line in response.iter_lines():
-                if line:
-                    data = json.loads(line)
-                    generated_text = data.get("response", "No response")
-                    print(generated_text)
-            print()
-        else:
-            print(f"Status Code : {response.status_code}")
-    except requests.exceptions.ConnectionError:
-        print("Connection Error ")
-    except Exception as e:
-        print(f" Error {e}")
-
-generate()
+    return StreamingResponse(stream_generator(), media_type="text/plain")
