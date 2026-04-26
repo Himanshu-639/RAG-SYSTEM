@@ -4,6 +4,8 @@ from google import genai
 from google.genai import types
 import ollama
 from sklearn.metrics.pairwise import cosine_similarity
+import requests
+import json
 
 load_dotenv()
 
@@ -41,7 +43,7 @@ print('Retrieved Knowledge : ')
 for chunk, similarity in retrieved_knowledge:
     print(f" - (similarity : {similarity:.2f}) {chunk}")
 
-
+'''
 
 def generate():
     client = genai.Client(
@@ -79,4 +81,32 @@ Use only the following pieces of context to answer the question. Don't make up a
             print(text, end="")
 
 print("your Answer")
+
+'''
+
+def generate():
+    url = "http://localhost:11434/api/generate"
+
+    payload = {
+        "model": "gemma4:e2b",
+        "prompt": input_query,
+    }
+
+    try:
+        response = requests.post(url, json = payload, stream=True)
+
+        if response.status_code == 200:
+            for line in response.iter_lines():
+                if line:
+                    data = json.loads(line)
+                    generated_text = data.get("response", "No response")
+                    print(generated_text)
+            print()
+        else:
+            print(f"Status Code : {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        print("Connection Error ")
+    except Exception as e:
+        print(f" Error {e}")
+
 generate()
