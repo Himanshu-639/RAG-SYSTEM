@@ -1,0 +1,11 @@
+[project]
+name = "rag-system"
+version = "0.1.0"
+description = "a rag system supported by gemma4 e2b"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.136.1",
+    "ollama>=0.6.1",
+    "scikit-learn>=1.8.0",
+]
