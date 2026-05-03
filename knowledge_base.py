@@ -1,5 +1,6 @@
 import chromadb
 import ollama
+import uuid
 from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
 
 class CustomEmbeddingFunction(EmbeddingFunction):
@@ -13,25 +14,26 @@ class CustomEmbeddingFunction(EmbeddingFunction):
 EMBEDDING_MODEL = 'hf.co/CompendiumLabs/bge-base-en-v1.5-gguf'
 custom_embeddings = CustomEmbeddingFunction(EMBEDDING_MODEL)
 
-chroma_client = chromadb.Client()
+chroma_client = chromadb.PersistentClient(path='database/')
 collection = chroma_client.get_or_create_collection(
     name = "my-collection",
     embedding_function=custom_embeddings
 )
 
-with open("cat-facts.txt", "r", encoding="utf-8") as f:
-    lines = f.readlines()
-    print(f"Total {len(lines)} lines of text is read")
-    print(lines)
+def add_to_knowledge_base(text_content: str):
+    chunks = []
+    for c in text_content.split('\n'):
+        chunks.append(c.strip())
+    if chunks:
+        collection.add(
+            ids = [str(uuid.uuid4()) for _ in chunks],
+            documents=chunks
+        )
+    return len(chunks)
 
-collection.add(
-    ids=[f"id_{i}" for i in range(0, len(lines))],
-    documents = [line for line in lines]
-)
-
-result = collection.query(
-    query_texts = ["which cat gave birth to maximum kittens ? "],
-    n_results = 2
-)
-
-print(result)
+def query_knowledge_base(query: str, n_results: int = 3):
+    results = collection.query(
+        query_texts=[query],
+        n_results=n_results
+    )
+    return results['documents'][0] if results['documents'] else []
