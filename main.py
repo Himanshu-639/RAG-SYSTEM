@@ -6,6 +6,8 @@ from fastapi.responses import StreamingResponse
 import requests
 import json
 from pydantic import BaseModel
+import fitz
+import io
 from knowledge_base import add_to_knowledge_base, query_knowledge_base
 
 app = FastAPI(title="RAG-SYSTEM")
@@ -31,14 +33,30 @@ async def get_home(request: Request):
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    if not file.filename.endswith(".txt"):
-        return {"error": "Only .txt files are allowed"}
+    if file.filename.endswith(".txt"):
+        content = await file.read()
+        text = content.decode("utf-8")
+        num_chunks = add_to_knowledge_base(text)
+        return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
+
+    elif file.filename.endswith(".pdf"):
+        content = await file.read()
+        doc = fitz.open(stream=content, filetype="pdf")
+        has_tables = any(page.find_tables() for page in doc)
+        print("has_tables", has_tables)
+
+        full_text = ""
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            full_text += page.get_text("text")
+        print("text", full_text)
+        num_chunks = add_to_knowledge_base(full_text)
+        return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
+
+    else:
+        return {"error": "Only .txt and .pdf files are allowed"}
     
-    content = await file.read()
-    text = content.decode("utf-8")
-    num_chunks = add_to_knowledge_base(text)
     
-    return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
 
 @app.post("/chat")
 async def chat(request: QueryRequest):
