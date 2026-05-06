@@ -23,12 +23,19 @@ collection = chroma_client.get_or_create_collection(
 def add_to_knowledge_base(text_content: str):
     chunks = []
     for c in text_content.split('\n'):
-        chunks.append(c.strip())
+        clean_chunk = c.strip()
+        if clean_chunk:
+            chunks.append(clean_chunk)
+
+    #Handling ChromaDB max batch size of 5461        
     if chunks:
-        collection.add(
-            ids = [str(uuid.uuid4()) for _ in chunks],
-            documents=chunks
-        )
+        batch_size = 5000
+        for i in range(0, len(chunks), batch_size):
+            batch_chunks = chunks[i: i+batch_size]
+            collection.add(
+                ids = [str(uuid.uuid4()) for _ in batch_chunks],
+                documents=batch_chunks
+            )
     return len(chunks)
 
 def query_knowledge_base(query: str, n_results: int = 3):
