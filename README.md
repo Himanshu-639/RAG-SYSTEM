@@ -5,8 +5,9 @@ A local, private Retrieval-Augmented Generation (RAG) assistant built with FastA
 ## Current Features
 - **Local LLM Inference:** Powered by Ollama (using models like Gemma, Llama 3, etc.), ensuring 100% data privacy.
 - **Persistent Vector Storage:** Utilizes ChromaDB to store and retrieve document embeddings efficiently.
-- **Document Ingestion:** A UI allowing users to upload custom .txt files directly into the knowledge base.
+- **Document Ingestion:** A UI allowing users to upload custom .txt, .pdf files directly into the knowledge base.
 - **Real-Time Streaming:** The chat interface streams the LLM's response back to the user in real-time.
+- **Rich Chat UI:** Integrated Markdown parsing (like marked.js) in the frontend to properly format the LLM's text, lists, and code blocks.
 
 ## Future Development Roadmap
 
@@ -23,5 +24,4 @@ A local, private Retrieval-Augmented Generation (RAG) assistant built with FastA
 ### 3. API & User Experience Improvements
 - **Conversational Memory:** Store dialogue history to enable follow-up questions and genuine multi-turn conversations.
 - **Database Management Interface:** Add API endpoints and UI controls to view what documents are currently in the database and give users the ability to purge outdated information.
-- **Rich Chat UI:** Integrate Markdown parsing (like marked.js) in the frontend to properly format the LLM's text, lists, and code blocks. Add loading spinners to improve UX during file uploads and initial LLM generation.
 - **Dynamic Configuration:** Provide frontend controls to easily switch the active Ollama model and tweak the System Prompt depending on the required persona or task.

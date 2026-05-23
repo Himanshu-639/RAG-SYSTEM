@@ -10,7 +10,14 @@ document.addEventListener('DOMContentLoaded', () => {
         msgDiv.className = `message ${sender}`;
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.textContent = content;
+        
+        // Render content as HTML using marked if it's the system
+        if (typeof marked !== 'undefined') {
+            contentDiv.innerHTML = marked.parse(content);
+        } else {
+            contentDiv.textContent = content;
+        }
+        
         msgDiv.appendChild(contentDiv);
         chatBox.appendChild(msgDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -24,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('file', file);
 
-        addMessage(`Uploading file: ${file.name}...`, 'system');
+        const uploadMsg = addMessage(`<div class="loading-text"><div class="spinner"></div>Uploading ${file.name}...</div>`, 'system');
         uploadBtn.disabled = true;
 
         try {
@@ -35,13 +42,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 const data = await response.json();
-                addMessage(`Success: ${data.message}`, 'system');
+                uploadMsg.innerHTML = marked.parse(`✅ Success: ${data.message}`);
             } else {
                 const errorData = await response.json();
-                addMessage(`Error: ${errorData.detail || 'Upload failed'}`, 'system');
+                uploadMsg.innerHTML = marked.parse(`❌ Error: ${errorData.detail || 'Upload failed'}`);
             }
         } catch (error) {
-            addMessage('Error: Connection failed during upload.', 'system');
+            uploadMsg.innerHTML = marked.parse('❌ Error: Connection failed during upload.');
         } finally {
             uploadBtn.disabled = false;
             fileUpload.value = ''; // Reset input
@@ -59,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         queryInput.value = '';
         sendBtn.disabled = true;
 
-        const responseContent = addMessage('...', 'system');
+        const responseContent = addMessage('<div class="loading-text"><div class="spinner"></div>Thinking...</div>', 'system');
 
         try {
             const response = await fetch('/chat', {
@@ -69,20 +76,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                responseContent.textContent = 'Error: Failed to fetch response.';
+                responseContent.innerHTML = '❌ Error: Failed to fetch response.';
                 sendBtn.disabled = false;
                 return;
             }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            responseContent.textContent = '';
+            let fullText = '';
+            // responseContent.innerHTML = ''; // Removed to wait for first chunk
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 const chunk = decoder.decode(value, { stream: true });
-                responseContent.textContent += chunk;
+                
+                // Clear the spinner on the first incoming chunk
+                if (fullText === '') responseContent.innerHTML = '';
+                
+                fullText += chunk;
+                responseContent.innerHTML = marked.parse(fullText);
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
         } catch (error) {

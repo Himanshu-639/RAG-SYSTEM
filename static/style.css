@@ -82,6 +82,40 @@ body {
     border-bottom-left-radius: 4px;
 }
 
+/* Markdown Styling */
+.message-content h1, .message-content h2, .message-content h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.message-content p {
+    margin: 5px 0;
+}
+
+.message-content pre {
+    background-color: #1a1a1a;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.message-content code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.message-content pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+.message-content ul, .message-content ol {
+    padding-left: 20px;
+    margin: 5px 0;
+}
+
 .input-container {
     display: flex;
     padding: 15px;
@@ -98,6 +132,28 @@ body {
     color: #fff;
     font-size: 1rem;
     outline: none;
+}
+
+/* Spinner Styles */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    display: flex;
+    align-items: center;
 }
 
 #query-input:focus {
