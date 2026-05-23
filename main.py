@@ -26,7 +26,7 @@ templates = Jinja2Templates(directory="templates")
 
 class QueryRequest(BaseModel):
     query: str
-
+    
 @app.get("/")
 async def get_home(request: Request):
     return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
@@ -36,7 +36,7 @@ async def upload_file(file: UploadFile = File(...)):
     if file.filename.endswith(".txt"):
         content = await file.read()
         text = content.decode("utf-8")
-        num_chunks = add_to_knowledge_base(text)
+        num_chunks = add_to_knowledge_base(text, metadata={"source": file.filename, "type": "text"})
         return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
 
     elif file.filename.endswith(".pdf"):
@@ -47,7 +47,7 @@ async def upload_file(file: UploadFile = File(...)):
         full_text = ""
         has_tables = False
         
-        for page in doc:
+        for page_num, page in enumerate(doc):
             tables = page.find_tables()
             if tables.tables:
                 has_tables = True
@@ -84,7 +84,7 @@ async def upload_file(file: UploadFile = File(...)):
                 
         print("has_tables", has_tables)
         print("text", full_text)
-        num_chunks = add_to_knowledge_base(full_text)
+        num_chunks = add_to_knowledge_base(full_text, metadata={"source": file.filename, "page": page_num + 1, "type": "pdf"})
         return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
 
     else:
@@ -95,6 +95,7 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/chat")
 async def chat(request: QueryRequest):
     retrieved_knowledge = query_knowledge_base(request.query)
+    print(retrieved_knowledge)
     
     url = "http://localhost:11434/api/generate"
     
