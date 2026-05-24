@@ -12,7 +12,7 @@ class CustomEmbeddingFunction(EmbeddingFunction):
         embeddings = ollama.embed(model = self.model_name, input=input)['embeddings']
         return embeddings
 
-EMBEDDING_MODEL = 'hf.co/CompendiumLabs/bge-base-en-v1.5-gguf'
+EMBEDDING_MODEL = 'qwen3-embeddings-0.6'
 custom_embeddings = CustomEmbeddingFunction(EMBEDDING_MODEL)
 
 chroma_client = chromadb.PersistentClient(path='database/')
@@ -23,8 +23,8 @@ collection = chroma_client.get_or_create_collection(
 
 def add_to_knowledge_base(text_content: str, metadata: dict):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=60,
+        chunk_size=2500,
+        chunk_overlap=400,
         separators=["\n\n", "\n", " ", ""]
     )
 
