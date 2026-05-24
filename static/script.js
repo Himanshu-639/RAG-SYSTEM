@@ -81,21 +81,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Extract Sources from Headers immediately
+            let sourcesHtml = '';
+            const sourcesHeader = response.headers.get('X-Sources');
+            if (sourcesHeader) {
+                try {
+                    const sources = JSON.parse(decodeURIComponent(sourcesHeader));
+                    if (sources.length > 0) {
+                        let sourcesList = sources.map(src => {
+                            // Truncate content for neatness
+                            const snippet = src.content.length > 150 ? src.content.substring(0, 150) + "..." : src.content;
+                            return `<li><strong>${src.filename} (Chunk ${src.chunk_index})</strong>: <em>"${snippet}"</em></li>`;
+                        }).join('');
+                        
+                        sourcesHtml = `<details class="sources-accordion">
+                                         <summary>View Sources (${sources.length})</summary>
+                                         <ul>${sourcesList}</ul>
+                                       </details>`;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse sources header", e);
+                }
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let fullText = '';
-            // responseContent.innerHTML = ''; // Removed to wait for first chunk
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 const chunk = decoder.decode(value, { stream: true });
                 
-                // Clear the spinner on the first incoming chunk
-                if (fullText === '') responseContent.innerHTML = '';
+                // On first chunk, inject the sources at the top
+                if (fullText === '') {
+                    responseContent.innerHTML = sourcesHtml;
+                }
                 
                 fullText += chunk;
-                responseContent.innerHTML = marked.parse(fullText);
+                // Append the markdown parsed text below the sources accordion
+                responseContent.innerHTML = sourcesHtml + '<div class="llm-response">' + marked.parse(fullText) + '</div>';
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
         } catch (error) {

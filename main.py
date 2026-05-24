@@ -8,7 +8,9 @@ import json
 from pydantic import BaseModel
 import fitz
 import io
+import uuid
 from knowledge_base import add_to_knowledge_base, query_knowledge_base
+import urllib.parse
 
 app = FastAPI(title="RAG-SYSTEM")
 
@@ -33,10 +35,17 @@ async def get_home(request: Request):
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
+    doc_id = str(uuid.uuid4())
+
+    metadata = {
+        "docId": doc_id,
+        "filename": file.filename,
+        "filetype": file.content_type
+    }
     if file.filename.endswith(".txt"):
         content = await file.read()
         text = content.decode("utf-8")
-        num_chunks = add_to_knowledge_base(text, metadata={"source": file.filename, "type": "text"})
+        num_chunks = add_to_knowledge_base(text, metadata=metadata)
         return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
 
     elif file.filename.endswith(".pdf"):
@@ -83,8 +92,7 @@ async def upload_file(file: UploadFile = File(...)):
                 full_text += content_str
                 
         print("has_tables", has_tables)
-        print("text", full_text)
-        num_chunks = add_to_knowledge_base(full_text, metadata={"source": file.filename, "page": page_num + 1, "type": "pdf"})
+        num_chunks = add_to_knowledge_base(full_text, metadata=metadata)
         return {"message": f"Successfully added {num_chunks} chunks from {file.filename} to the knowledge base"}
 
     else:
@@ -94,12 +102,12 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/chat")
 async def chat(request: QueryRequest):
-    retrieved_knowledge = query_knowledge_base(request.query)
-    print(retrieved_knowledge)
+    retrieved_docs, retrieved_metadata = query_knowledge_base(request.query)
+    print(retrieved_docs)
     
     url = "http://localhost:11434/api/generate"
     
-    context_text = '\n'.join([f' - {chunk}' for chunk in retrieved_knowledge])
+    context_text = '\n'.join([f' - {chunk}' for chunk in retrieved_docs])
     system_prompt = f"You are a helpful chatbot.\nUse only the following pieces of context to answer the question. Don't make up any new information:\n{context_text}"
 
     payload = {
@@ -107,6 +115,17 @@ async def chat(request: QueryRequest):
         "prompt": request.query,
         "system": system_prompt,
     }
+
+    sources = []
+    for doc, meta in zip(retrieved_docs, retrieved_metadata):
+        sources.append({
+            "filename": meta.get("filename", "Unknown"),
+            "chunk_index": meta.get("chunk_index", "Unknown"),
+            "content": doc
+        })
+
+    sources_json = urllib.parse.quote(json.dumps(sources))
+
 
     def stream_generator():
         try:
@@ -121,4 +140,8 @@ async def chat(request: QueryRequest):
         except Exception as e:
             yield f"Error: {e}"
 
-    return StreamingResponse(stream_generator(), media_type="text/plain")
+    return StreamingResponse(
+        stream_generator(), 
+        media_type="text/plain",
+        headers={"X-Sources": sources_json, "Access-Control-Expose-Headers": "X-Sources"}
+    )
